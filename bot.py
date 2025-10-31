@@ -17,7 +17,7 @@ dp = Dispatcher()
 
 user_data = {}
 
-# 1️⃣ Выбор языка
+# --- /start ---
 @dp.message(Command("start"))
 async def start(message: types.Message):
     keyboard = types.ReplyKeyboardMarkup(
@@ -28,7 +28,7 @@ async def start(message: types.Message):
     )
     await message.answer("Выбери язык / Choose your language:", reply_markup=keyboard)
 
-# 2️⃣ Получаем имя
+# --- Выбор языка ---
 @dp.message(lambda msg: msg.text in ["🇷🇺 Русский", "🇬🇧 English"])
 async def ask_name(message: types.Message):
     lang = "ru" if "Русский" in message.text else "eng"
@@ -36,7 +36,7 @@ async def ask_name(message: types.Message):
     text = "Как тебя зовут?" if lang == "ru" else "What's your name?"
     await message.answer(text, reply_markup=types.ReplyKeyboardRemove())
 
-# 3️⃣ Имя → возраст
+# --- Имя ---
 @dp.message(lambda msg: msg.from_user.id in user_data and "name" not in user_data[msg.from_user.id])
 async def ask_age(message: types.Message):
     user_data[message.from_user.id]["name"] = message.text
@@ -44,7 +44,7 @@ async def ask_age(message: types.Message):
     text = "Сколько тебе лет?" if lang == "ru" else "How old are you?"
     await message.answer(text)
 
-# 4️⃣ Возраст → город
+# --- Возраст ---
 @dp.message(lambda msg: msg.from_user.id in user_data and "age" not in user_data[msg.from_user.id])
 async def ask_city(message: types.Message):
     user_data[message.from_user.id]["age"] = message.text
@@ -52,27 +52,86 @@ async def ask_city(message: types.Message):
     text = "Из какого ты города?" if lang == "ru" else "Which city are you from?"
     await message.answer(text)
 
-# 5️⃣ Отправляем данные владельцу
+# --- Город ---
 @dp.message(lambda msg: msg.from_user.id in user_data and "city" not in user_data[msg.from_user.id])
-async def finish(message: types.Message):
+async def finish_registration(message: types.Message):
     user = message.from_user
     data = user_data[message.from_user.id]
     data["city"] = message.text
 
     text = (
         f"📨 Новый пользователь!\n\n"
-        f"👤 Имя: {data['name']}\n"
-        f"🎂 Возраст: {data['age']}\n"
-        f"🏙 Город: {data['city']}\n"
-        f"🌐 Язык: {data['lang']}\n"
+        f"👤 Имя: {data.get('name', 'не указано')}\n"
+        f"🎂 Возраст: {data.get('age', 'не указано')}\n"
+        f"🏙 Город: {data.get('city', 'не указано')}\n"
+        f"🌐 Язык: {data.get('lang', 'неизвестно')}\n"
         f"🔗 Username: @{user.username or 'нет'}\n"
         f"🆔 Telegram ID: {user.id}"
     )
 
     await bot.send_message(OWNER_ID, text)
-    await message.answer("✅ Спасибо! Данные отправлены.")
 
+    # Успешная регистрация
+    lang = data["lang"]
+    success_text = "✅ Вы успешно зарегистрировались." if lang == "ru" else "✅ You have successfully registered."
+    await message.answer(success_text)
+
+    # Переход к вопросу
+    ask_text = "Задайте ваш вопрос, который вас интересует:" if lang == "ru" else "Please ask your question:"
+    await message.answer(ask_text)
+
+    # Отмечаем, что ждём вопрос
+    user_data[message.from_user.id]["awaiting_question"] = True
+
+
+# --- Получение вопроса ---
+@dp.message(lambda msg: msg.from_user.id in user_data and user_data[msg.from_user.id].get("awaiting_question"))
+async def handle_question(message: types.Message):
+    user = message.from_user
+    data = user_data[message.from_user.id]
+    lang = data["lang"]
+
+    question_text = (
+        f"❓ Новый вопрос от пользователя @{user.username or 'нет'}\n\n"
+        f"🗣 Имя: {data.get('name', 'не указано')}\n"
+        f"🎂 Возраст: {data.get('age', 'не указано')}\n"
+        f"🏙 Город: {data.get('city', 'не указано')}\n"
+        f"💬 Вопрос:\n{message.text}"
+    )
+    await bot.send_message(OWNER_ID, question_text)
+
+    # Ответ пользователю
+    error_text = "⚠️ Ошибка. Пожалуйста попробуйте позже." if lang == "ru" else "⚠️ Error. Please try again later."
+    await message.answer(error_text)
+
+    # Завершаем диалог
     del user_data[message.from_user.id]
+
+# --- Обработка незавершённых регистраций ---
+@dp.message(lambda msg: msg.from_user.id in user_data and "city" not in user_data[msg.from_user.id] and "awaiting_question" not in user_data[msg.from_user.id])
+async def incomplete_data_handler(message: types.Message):
+    """Если пользователь перестал вводить данные — всё равно отправляем их владельцу."""
+    user = message.from_user
+    data = user_data[message.from_user.id]
+    data.setdefault("name", "не указано")
+    data.setdefault("age", "не указано")
+    data.setdefault("city", "не указано")
+
+    text = (
+        f"⚠️ Незавершённая регистрация!\n\n"
+        f"👤 Имя: {data['name']}\n"
+        f"🎂 Возраст: {data['age']}\n"
+        f"🏙 Город: {data['city']}\n"
+        f"🌐 Язык: {data.get('lang', 'неизвестно')}\n"
+        f"🔗 Username: @{user.username or 'нет'}\n"
+        f"🆔 Telegram ID: {user.id}"
+    )
+    await bot.send_message(OWNER_ID, text)
+    await message.answer("✅ Вы успешно зарегистрировались." if data["lang"] == "ru" else "✅ You have successfully registered.")
+    ask_text = "Задайте ваш вопрос, который вас интересует:" if data["lang"] == "ru" else "Please ask your question:"
+    await message.answer(ask_text)
+    user_data[message.from_user.id]["awaiting_question"] = True
+
 
 # --- Webhook ---
 async def on_startup(app: web.Application):
