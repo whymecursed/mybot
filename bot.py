@@ -1,14 +1,15 @@
 import os
+import asyncio
 from aiogram import Bot, Dispatcher, types
 from aiogram.client.default import DefaultBotProperties
 from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
+from aiogram.filters import Command
 from aiohttp import web
-import asyncio
 
 TOKEN = os.getenv("BOT_TOKEN")
-OWNER_ID = int(os.getenv("OWNER_ID"))  # 🔹 Твой Telegram ID
+OWNER_ID = int(os.getenv("OWNER_ID"))
 WEBHOOK_PATH = f"/webhook/{TOKEN}"
-WEBHOOK_HOST = os.getenv("RENDER_EXTERNAL_URL")  # Render задаёт это значение
+WEBHOOK_HOST = os.getenv("RENDER_EXTERNAL_URL")
 WEBHOOK_URL = f"{WEBHOOK_HOST}{WEBHOOK_PATH}"
 
 bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
@@ -17,7 +18,7 @@ dp = Dispatcher()
 user_data = {}
 
 # 1️⃣ Выбор языка
-@dp.message(commands=["start"])
+@dp.message(Command("start"))
 async def start(message: types.Message):
     keyboard = types.ReplyKeyboardMarkup(
         keyboard=[
