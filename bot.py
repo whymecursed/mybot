@@ -5,12 +5,18 @@ from aiogram.fsm.state import StatesGroup, State
 from aiogram.fsm.context import FSMContext
 from aiogram import Router
 from aiogram.enums import ParseMode
+from aiogram.client.default import DefaultBotProperties
 import asyncio
+
 
 TOKEN = "8315087330:AAH6VNsvsQHYL-SadlVBPMzc51arGYszJkk"
 ADMIN_ID = 8212948557
 
-bot = Bot(token=TOKEN, parse_mode=ParseMode.HTML)
+bot = Bot(
+    token=TOKEN,
+    default=DefaultBotProperties(parse_mode=ParseMode.HTML)
+)
+
 dp = Dispatcher()
 router = Router()
 dp.include_router(router)
